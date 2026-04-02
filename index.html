@@ -1,0 +1,660 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ShedWeather Live</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    :root {
+      --bg-main: #0e141f;
+      --bg-panel: #1b2333;
+      --bg-panel-soft: #202a3d;
+      --accent-blue: #4fc3f7;
+      --accent-green: #7adf87;
+      --accent-orange: #ffb347;
+      --accent-purple: #b287ff;
+      --accent-red: #ff6b6b;
+      --text-main: #f5f7ff;
+      --text-muted: #a4afc3;
+      --border-soft: #2a3346;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: radial-gradient(circle at top, #1a2233 0, #060910 55%, #020308 100%);
+      margin: 0;
+      padding: 0;
+      text-align: center;
+      color: var(--text-main);
+    }
+
+    header {
+      background: linear-gradient(90deg, #0f1725, #1f2940);
+      color: var(--text-main);
+      padding: 10px 0 8px;
+      box-shadow: 0 4px 14px rgba(0,0,0,0.7);
+      border-bottom: 1px solid #000;
+    }
+
+    header h1 {
+      margin: 0;
+      font-size: 1.7rem;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
+    .subheader {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      margin-top: 3px;
+    }
+
+    .clock-container {
+      max-width: 420px;
+      margin: 18px auto 6px;
+      text-align: center;
+    }
+
+    #bigClock {
+      display: inline-block;
+      background: #020400;
+      color: #27ff4f;
+      padding: 10px 26px;
+      border-radius: 10px;
+      font-size: 2.7rem;
+      font-family: "Digital-7 Mono", "Share Tech Mono", monospace;
+      letter-spacing: 0.12em;
+      text-shadow: 0 0 10px rgba(39,255,79,0.6);
+      box-shadow: 0 0 18px rgba(0,0,0,0.8);
+      border: 2px solid #1b3a1f;
+      min-width: 260px;
+    }
+
+    #lastUpdate {
+      margin-top: 6px;
+      font-size: 0.85rem;
+      font-weight: 500;
+      color: var(--text-muted);
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 10px 10px 20px;
+    }
+
+    .info-grid,
+    .daily-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 10px;
+      margin: 10px 0;
+    }
+
+    .info-box {
+      position: relative;
+      background: radial-gradient(circle at top left, #2b364a 0, #1b2333 55%, #151b27 100%);
+      border-radius: 10px;
+      padding: 10px 12px;
+      box-shadow: 0 4px 14px rgba(0,0,0,0.7);
+      font-size: 0.86rem;
+      line-height: 1.4;
+      text-align: left;
+      border: 1px solid #111724;
+      overflow: hidden;
+      color: var(--text-main);
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+    }
+
+    .info-box::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: 0;
+      height: 3px;
+      width: 100%;
+      background: linear-gradient(90deg, #4fc3f7, #ffb347);
+      opacity: 0.9;
+    }
+
+    .info-box span.value {
+      display: block;
+      margin-top: 6px;
+      font-size: 1.5rem;
+      font-weight: 600;
+      color: var(--text-main);
+    }
+
+    .info-box.blue::before {
+      background: linear-gradient(90deg, var(--accent-blue), #82b1ff);
+    }
+    .info-box.green::before {
+      background: linear-gradient(90deg, var(--accent-green), #c5e86a);
+    }
+    .info-box.orange::before {
+      background: linear-gradient(90deg, var(--accent-orange), #ffd56a);
+    }
+    .info-box.purple::before {
+      background: linear-gradient(90deg, var(--accent-purple), #7f9cff);
+    }
+    .info-box.red::before {
+      background: linear-gradient(90deg, var(--accent-red), #ff967a);
+    }
+
+    .trend {
+      display: block;
+      margin-top: 2px;
+      font-size: 0.78rem;
+      color: var(--text-muted);
+    }
+    .trend.up   { color: var(--accent-green); }
+    .trend.down { color: var(--accent-red); }
+
+    /* Sunrise / sunset styling */
+    .info-box.sun-box::before {
+      background: linear-gradient(90deg, #ffb347, #ffe27a);
+    }
+    .info-box.moon-box::before {
+      background: linear-gradient(90deg, #4fc3f7, #7f9cff);
+    }
+    .sunmoon-row {
+      display: flex;
+      align-items: baseline;
+      gap: 6px;
+      margin-top: 6px;
+    }
+    .sunmoon-icon {
+      font-size: 1.4rem;
+    }
+    .sunmoon-value {
+      font-size: 1.4rem;
+      font-weight: 600;
+    }
+
+    /* Rain status colouring */
+    .rain-status {
+      margin-top: 6px;
+      font-size: 1.3rem;
+      font-weight: 600;
+    }
+    .rain-status.raining {
+      color: var(--accent-blue);
+    }
+    .rain-status.dry {
+      color: var(--accent-green);
+    }
+    .rain-status.unknown {
+      color: var(--text-muted);
+    }
+
+    h2 {
+      margin-top: 22px;
+      margin-bottom: 8px;
+      font-size: 1rem;
+      text-transform: uppercase;
+      letter-spacing: 0.14em;
+      color: var(--text-muted);
+    }
+
+    .charts-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 15px;
+      margin: 15px 0 25px;
+    }
+
+    .chart-card {
+      background: var(--bg-panel-soft);
+      border-radius: 10px;
+      padding: 10px;
+      box-shadow: 0 4px 14px rgba(0,0,0,0.7);
+      border: 1px solid var(--border-soft);
+      text-align: left;
+    }
+
+    .chart-card h3 {
+      margin: 0 0 6px;
+      font-size: 0.9rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    footer {
+      font-size: 0.8rem;
+      padding: 8px 0 14px;
+      color: var(--text-muted);
+    }
+
+    @media (max-width: 600px) {
+      #bigClock {
+        font-size: 2.1rem;
+        padding: 8px 18px;
+      }
+    }
+  </style>
+</head>
+<body>
+<header>
+  <h1>ShedWeather Live</h1>
+  <div class="subheader">Ecowitt GW3000A • Allotment Weather Feed</div>
+</header>
+
+<div class="clock-container">
+  <div id="bigClock">--:--:--</div>
+  <div id="lastUpdate">Last Update: --:--:--</div>
+</div>
+
+<div class="container">
+  <!-- Main info boxes -->
+  <div class="info-grid">
+    <div class="info-box blue" id="tempBox">
+      Temperature
+      <span class="value" id="tempValue">--°C</span>
+      <span class="trend" id="tempTrend">Trend: --</span>
+    </div>
+
+    <div class="info-box green" id="humidityBox">
+      Humidity
+      <span class="value" id="humidityValue">--%</span>
+      <span class="trend" id="humidityTrend">Trend: --</span>
+    </div>
+
+    <div class="info-box purple" id="rainBox">
+      Rainfall Today
+      <span class="value" id="rainTodayValue">-- mm</span>
+    </div>
+
+    <div class="info-box purple" id="rainStatusBox">
+      Rain Status
+      <div class="rain-status unknown" id="rainStatusValue">Unknown</div>
+    </div>
+
+    <div class="info-box orange" id="windBox">
+      Wind Speed
+      <span class="value" id="windValue">-- mph</span>
+      <span class="trend" id="windTrend">Trend: --</span>
+    </div>
+
+    <div class="info-box orange" id="windGustBox">
+      Wind Gust
+      <span class="value" id="windGustValue">-- mph</span>
+    </div>
+
+    <div class="info-box red" id="directionBox">
+      Wind Direction
+      <span class="value" id="directionValue">--</span>
+    </div>
+
+    <div class="info-box purple" id="solarBox">
+      Solar Radiation
+      <span class="value" id="solarValue">-- W/m²</span>
+      <span class="trend" id="solarTrend">Trend: --</span>
+    </div>
+
+    <div class="info-box purple" id="solarLuxBox">
+      Solar Lux
+      <span class="value" id="solarLuxValue">-- lx</span>
+    </div>
+
+    <div class="info-box orange" id="uvBox">
+      UV Index
+      <span class="value" id="uvValue">--</span>
+      <span class="trend" id="uvTrend">Trend: --</span>
+    </div>
+
+    <div class="info-box blue" id="pressureBox">
+      Pressure (Relative)
+      <span class="value" id="pressureValue">-- hPa</span>
+      <span class="trend" id="pressureTrend">Trend: --</span>
+    </div>
+
+
+    <div class="info-box sun-box" id="sunriseBox">
+      Sunrise
+      <div class="sunmoon-row">
+        <span class="sunmoon-icon">☀️</span>
+        <span class="sunmoon-value" id="sunriseValue">--:--</span>
+      </div>
+    </div>
+
+    <div class="info-box moon-box" id="sunsetBox">
+      Sunset
+      <div class="sunmoon-row">
+        <span class="sunmoon-icon">🌙</span>
+        <span class="sunmoon-value" id="sunsetValue">--:--</span>
+      </div>
+    </div>
+
+    <div class="info-box moon-box" id="moonPhaseBox">
+      Moon Phase
+      <div class="sunmoon-row">
+        <span class="sunmoon-icon" id="moonPhaseIcon">🌑</span>
+        <span class="sunmoon-value" id="moonPhaseValue">--</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Daily stats -->
+  <h2>Today’s Extremes</h2>
+  <div class="daily-grid">
+    <div class="info-box" id="maxTempBox">
+      Max Temp
+      <span class="value">--°C</span>
+    </div>
+    <div class="info-box" id="minTempBox">
+      Min Temp
+      <span class="value">--°C</span>
+    </div>
+    <div class="info-box" id="maxHumidityBox">
+      Max Humidity
+      <span class="value">--%</span>
+    </div>
+    <div class="info-box" id="minHumidityBox">
+      Min Humidity
+      <span class="value">--%</span>
+    </div>
+    <div class="info-box" id="maxWindBox">
+      Max Wind
+      <span class="value">-- mph</span>
+    </div>
+    <div class="info-box" id="maxSolarBox">
+      Max Solar
+      <span class="value">-- W/m²</span>
+    </div>
+    <div class="info-box" id="minSolarBox">
+      Min Solar
+      <span class="value">-- W/m²</span>
+    </div>
+    <div class="info-box" id="maxUvBox">
+      Max UV
+      <span class="value">--</span>
+    </div>
+    <div class="info-box" id="minUvBox">
+      Min UV
+      <span class="value">--</span>
+    </div>
+    <div class="info-box" id="maxPressBox">
+      Max Pressure
+      <span class="value">-- mmHg</span>
+    </div>
+    <div class="info-box" id="minPressBox">
+      Min Pressure
+      <span class="value">-- mmHg</span>
+    </div>
+  </div>
+
+  <!-- Charts -->
+  <h2>Last 12 Hours (rolling)</h2>
+  <div class="charts-grid">
+    <div class="chart-card">
+      <h3>Temperature (°C)</h3>
+      <canvas id="tempChart"></canvas>
+    </div>
+    <div class="chart-card">
+      <h3>Humidity (%)</h3>
+      <canvas id="humidityChart"></canvas>
+    </div>
+    <div class="chart-card">
+      <h3>Rainfall (mm)</h3>
+      <canvas id="rainChart"></canvas>
+    </div>
+    <div class="chart-card">
+      <h3>Wind Speed (mph)</h3>
+      <canvas id="windChart"></canvas>
+    </div>
+  </div>
+</div>
+
+<footer>
+  ShedWeather • Powered by Ecowitt GW3000A, Home Assistant &amp; a slightly weather-obsessed human.
+</footer>
+
+<script>
+  const API_URL = "/api/weather";
+
+  let tempChart, humidityChart, rainChart, windChart;
+
+  function createCharts() {
+    const tempCtx = document.getElementById("tempChart").getContext("2d");
+    const humCtx  = document.getElementById("humidityChart").getContext("2d");
+    const rainCtx = document.getElementById("rainChart").getContext("2d");
+    const windCtx = document.getElementById("windChart").getContext("2d");
+
+    tempChart = new Chart(tempCtx, {
+      type: "line",
+      data: { labels: [], datasets: [{ label: "Temperature °C", data: [], fill: false, tension: 0.2 }] },
+      options: { responsive: true, scales: { x: { display: false }, y: { beginAtZero: false } } }
+    });
+
+    humidityChart = new Chart(humCtx, {
+      type: "line",
+      data: { labels: [], datasets: [{ label: "Humidity %", data: [], fill: false, tension: 0.2 }] },
+      options: { responsive: true, scales: { x: { display: false }, y: { beginAtZero: true, max: 100 } } }
+    });
+
+    rainChart = new Chart(rainCtx, {
+      type: "line",
+      data: { labels: [], datasets: [{ label: "Rainfall mm", data: [], fill: true, tension: 0.2 }] },
+      options: { responsive: true, scales: { x: { display: false }, y: { beginAtZero: true } } }
+    });
+
+    windChart = new Chart(windCtx, {
+      type: "line",
+      data: { labels: [], datasets: [{ label: "Wind Speed (mph)", data: [], fill: false, tension: 0.2 }] },
+      options: { responsive: true, scales: { x: { display: false }, y: { beginAtZero: true } } }
+    });
+  }
+
+  function formatTimeMaybe(t) {
+    if (!t) return null;
+    if (typeof t === "number") {
+      const d = new Date(t > 1e12 ? t : t * 1000);
+      return d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+    }
+    const d = new Date(t);
+    if (!isNaN(d.getTime())) {
+      return d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+    }
+    return t; // assume already "HH:MM"
+  }
+
+  function updateTrend(elementId, series, decimals, unit, threshold) {
+    const el = document.getElementById(elementId);
+    if (!el) return;
+    if (!series || series.length < 2) {
+      el.textContent = "Trend: --";
+      el.className = "trend";
+      return;
+    }
+    const last = series[series.length - 1];
+    const prev = series[series.length - 2];
+    const diff = last - prev;
+    const th = typeof threshold === "number" ? threshold : (decimals === 0 ? 0.5 : 0.1);
+
+    let arrow = "■";
+    let cls = "trend";
+    if (diff > th) { arrow = "▲"; cls = "trend up"; }
+    else if (diff < -th) { arrow = "▼"; cls = "trend down"; }
+
+    const sign = diff > 0 ? "+" : "";
+    el.textContent = `Trend: ${arrow} ${sign}${diff.toFixed(decimals)}${unit || ""}`;
+    el.className = cls;
+  }
+
+  async function fetchData() {
+    try {
+      const res = await fetch(API_URL);
+      const data = await res.json();
+
+      // Main Info Boxes
+      const tempNow   = typeof data.temperature === "number" ? data.temperature.toFixed(1) : "--";
+      const humNow    = typeof data.humidity === "number"    ? data.humidity.toFixed(0)    : "--";
+      const rainToday = typeof data.dailyRain === "number"   ? data.dailyRain.toFixed(1)   : "--";
+      const KMH_TO_MPH = 0.621371;
+      const windNow   = typeof data.windSpeed === "number"   ? (data.windSpeed * KMH_TO_MPH).toFixed(1) : "--";
+      const gustNow   = typeof data.windGust === "number"    ? (data.windGust  * KMH_TO_MPH).toFixed(1) : "--";
+
+      document.getElementById("tempValue").textContent       = `${tempNow}°C`;
+      document.getElementById("humidityValue").textContent   = `${humNow}%`;
+      document.getElementById("rainTodayValue").textContent  = `${rainToday} mm`;
+      document.getElementById("windValue").textContent       = `${windNow} mph`;
+      document.getElementById("windGustValue").textContent   = `${gustNow} mph`;
+      document.getElementById("directionValue").textContent  = data.windDirection ?? "--";
+
+      document.getElementById("solarValue").textContent =
+        (typeof data.solarRadiation === "number" ? data.solarRadiation.toFixed(1) : "--") + " W/m²";
+      document.getElementById("solarLuxValue").textContent =
+        (typeof data.solarLux === "number" ? Math.round(data.solarLux).toLocaleString() : "--") + " lx";
+      document.getElementById("uvValue").textContent =
+        typeof data.uvIndex === "number" ? data.uvIndex.toFixed(1) : "--";
+      document.getElementById("pressureValue").textContent =
+        (typeof data.pressureRelative === "number" ? data.pressureRelative.toFixed(1) : "--") + " hPa";
+
+      // Rain status
+      const rainStatusRaw = (data.rainStatus || "Unknown").toString();
+      const rainEl = document.getElementById("rainStatusValue");
+      let css = "rain-status unknown";
+      if (/rain/i.test(rainStatusRaw)) css = "rain-status raining";
+      else if (/dry/i.test(rainStatusRaw)) css = "rain-status dry";
+      rainEl.textContent = rainStatusRaw;
+      rainEl.className = css;
+
+      // Last Update
+      let updatedDate = data.timestamp ? new Date(data.timestamp) : new Date();
+      document.getElementById("lastUpdate").textContent =
+        "Last Update: " + updatedDate.toLocaleTimeString("en-GB", { hour12: false });
+
+      // Sunrise / Sunset
+      const sunriseFmt = formatTimeMaybe(data.astronomy?.sunrise || data.sunrise);
+      const sunsetFmt  = formatTimeMaybe(data.astronomy?.sunset  || data.sunset);
+      document.getElementById("sunriseValue").textContent = sunriseFmt || "--:--";
+      document.getElementById("sunsetValue").textContent  = sunsetFmt  || "--:--";
+
+      // Rolling history for charts and extremes
+      const h = data.history || {};
+      const tempStats  = (h.temperature || []).filter(v => typeof v === "number");
+      const humStats   = (h.humidity    || []).filter(v => typeof v === "number");
+      const windStats  = (h.windSpeed   || []).filter(v => typeof v === "number").map(v => v * 0.621371);
+      const rainStats  = (h.rainfall    || []).filter(v => typeof v === "number");
+      const solarStats = (h.solar       || []).filter(v => typeof v === "number");
+      const uvStats    = (h.uv          || []).filter(v => typeof v === "number");
+      const pressStats = (h.pressure    || []).filter(v => typeof v === "number");
+
+      const maxTempToday = data.daily?.maxTemp ?? null;
+      const minTempToday = data.daily?.minTemp ?? null;
+	  const maxHumToday  = data.daily?.maxHumidity ?? null;
+	  const minHumToday  = data.daily?.minHumidity ?? null;
+	  const maxWindToday = data.daily?.maxWind ?? null;
+
+      document.getElementById("maxTempBox").querySelector(".value").textContent =
+        (maxTempToday !== null ? maxTempToday.toFixed(1) : "--") + "°C";
+      document.getElementById("minTempBox").querySelector(".value").textContent =
+        (minTempToday !== null ? minTempToday.toFixed(1) : "--") + "°C";
+      document.getElementById("maxHumidityBox").querySelector(".value").textContent =
+        (maxHumToday  !== null ? maxHumToday.toFixed(0)  : "--") + "%";
+      document.getElementById("minHumidityBox").querySelector(".value").textContent =
+        (minHumToday  !== null ? minHumToday.toFixed(0)  : "--") + "%";
+      document.getElementById("maxWindBox").querySelector(".value").textContent =
+        (maxWindToday !== null ? (maxWindToday * 0.621371).toFixed(1) : "--") + " mph";
+
+      const maxSolar = solarStats.length ? Math.max(...solarStats)
+                      : (typeof data.solarRadiation === "number" ? data.solarRadiation : null);
+      const minSolar = solarStats.length ? Math.min(...solarStats)
+                      : (typeof data.solarRadiation === "number" ? data.solarRadiation : null);
+      document.getElementById("maxSolarBox").querySelector(".value").textContent =
+        (maxSolar != null ? maxSolar.toFixed(1) : "--") + " W/m²";
+      document.getElementById("minSolarBox").querySelector(".value").textContent =
+        (minSolar != null ? minSolar.toFixed(1) : "--") + " W/m²";
+
+      const maxUv = uvStats.length ? Math.max(...uvStats)
+                   : (typeof data.uvIndex === "number" ? data.uvIndex : null);
+      const minUv = uvStats.length ? Math.min(...uvStats)
+                   : (typeof data.uvIndex === "number" ? data.uvIndex : null);
+      document.getElementById("maxUvBox").querySelector(".value").textContent =
+        (maxUv != null ? maxUv.toFixed(1) : "--");
+      document.getElementById("minUvBox").querySelector(".value").textContent =
+        (minUv != null ? minUv.toFixed(1) : "--");
+
+      const maxPress = pressStats.length ? Math.max(...pressStats)
+                      : (typeof data.pressureRelative === "number" ? data.pressureRelative : null);
+      const minPress = pressStats.length ? Math.min(...pressStats)
+                      : (typeof data.pressureRelative === "number" ? data.pressureRelative : null);
+      document.getElementById("maxPressBox").querySelector(".value").textContent =
+        (maxPress != null ? maxPress.toFixed(1) : "--") + " hPa";
+      document.getElementById("minPressBox").querySelector(".value").textContent =
+        (minPress != null ? minPress.toFixed(1) : "--") + " hPa";
+
+      // Charts
+      tempChart.data.labels = tempStats.map((_, i) => `${i + 1}`);
+      tempChart.data.datasets[0].data = tempStats;
+      tempChart.update();
+
+      humidityChart.data.labels = humStats.map((_, i) => `${i + 1}`);
+      humidityChart.data.datasets[0].data = humStats;
+      humidityChart.update();
+
+      rainChart.data.labels = rainStats.map((_, i) => `${i + 1}`);
+      rainChart.data.datasets[0].data = rainStats;
+      rainChart.update();
+
+      windChart.data.labels = windStats.map((_, i) => `${i + 1}`);
+      windChart.data.datasets[0].data = windStats;
+      windChart.update();
+
+      // Moon phase
+      const moon = getMoonPhase(new Date());
+      document.getElementById("moonPhaseIcon").textContent  = moon.emoji;
+      document.getElementById("moonPhaseValue").textContent = moon.name;
+
+      // Trend arrows
+      updateTrend("tempTrend", tempStats, 1, "°C");
+      updateTrend("humidityTrend", humStats, 0, "%");
+      updateTrend("windTrend", windStats, 1, " mph", 0.2);
+      updateTrend("pressureTrend", pressStats, 1, " hPa", 0.2);
+      updateTrend("solarTrend", solarStats, 1, " W/m²", 5);
+      updateTrend("uvTrend", uvStats, 1, "", 0.1);
+
+    } catch (error) {
+      console.error("Error fetching data:", error);
+    }
+  }
+
+  function updateClock() {
+    const now = new Date();
+    document.getElementById("bigClock").textContent =
+      now.toLocaleTimeString("en-GB", { hour12: false });
+  }
+
+  function getMoonPhase(date) {
+    // Lunar cycle = 29.530588853 days. Reference new moon: 6 Jan 2000 18:14 UTC
+    const refNewMoon  = new Date(Date.UTC(2000, 0, 6, 18, 14, 0));
+    const lunarCycle  = 29.530588853;
+    const daysSinceRef = (date - refNewMoon) / 86400000;
+    const phase = ((daysSinceRef % lunarCycle) + lunarCycle) % lunarCycle; // 0–29.53
+
+    let name, emoji;
+    if      (phase <  1.85) { name = "New Moon";        emoji = "🌑"; }
+    else if (phase <  7.38) { name = "Waxing Crescent"; emoji = "🌒"; }
+    else if (phase <  9.22) { name = "First Quarter";   emoji = "🌓"; }
+    else if (phase < 14.77) { name = "Waxing Gibbous";  emoji = "🌔"; }
+    else if (phase < 16.61) { name = "Full Moon";       emoji = "🌕"; }
+    else if (phase < 22.15) { name = "Waning Gibbous";  emoji = "🌖"; }
+    else if (phase < 23.99) { name = "Last Quarter";    emoji = "🌗"; }
+    else                    { name = "Waning Crescent"; emoji = "🌘"; }
+
+    return { name, emoji };
+  }
+
+  createCharts();
+  setInterval(fetchData, 60000);
+  fetchData();
+  setInterval(updateClock, 1000);
+  updateClock();
+</script>
+</body>
+</html>

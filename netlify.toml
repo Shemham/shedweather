@@ -1,0 +1,6 @@
+# Route /api/weather to the serverless function
+[[redirects]]
+  from   = "/api/weather"
+  to     = "/.netlify/functions/weather"
+  status = 200
+  force  = true
