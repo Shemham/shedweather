@@ -1,7 +1,3 @@
-// Netlify Functions v2 — weather data store
-// GET  → returns latest weather JSON (called by the website every 60s)
-// POST → stores fresh weather JSON (called by Node-RED on HA every 60s)
-
 import { getStore } from "@netlify/blobs";
 
 export default async (request) => {
@@ -9,7 +5,6 @@ export default async (request) => {
         "Content-Type": "application/json",
         "Access-Control-Allow-Origin": "*",
     };
-
     if (request.method === "OPTIONS") {
         return new Response(null, {
             status: 204,
@@ -20,10 +15,7 @@ export default async (request) => {
             },
         });
     }
-
     const store = getStore("shedweather");
-
-    // ── POST: Node-RED pushes data ────────────────────────────────────────
     if (request.method === "POST") {
         const incoming = (request.headers.get("x-webhook-secret") || "").trim();
         const expected  = (process.env.WEATHER_SECRET || "").trim();
@@ -36,23 +28,19 @@ export default async (request) => {
         await store.set("latest", body);
         return new Response(JSON.stringify({ ok: true }), { status: 200, headers: cors });
     }
-
-    // ── GET: website fetches data ─────────────────────────────────────────
     if (request.method === "GET") {
         const data = await store.get("latest");
         if (!data) {
             return new Response(
-                JSON.stringify({ error: "No weather data yet — is Node-RED running?" }),
+                JSON.stringify({ error: "No weather data yet" }),
                 { status: 503, headers: cors }
             );
         }
         return new Response(data, { status: 200, headers: cors });
     }
-
     return new Response(JSON.stringify({ error: "Method not allowed" }), {
         status: 405, headers: cors,
     });
 };
 
-// Serve at /api/weather — no redirect needed
 export const config = { path: "/api/weather" };
